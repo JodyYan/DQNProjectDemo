@@ -23,8 +23,8 @@ function App() {
   const fetchAllTwseData = async () => {
     setIsAutoSyncing(true);
     try {
-      // Use proxy endpoint for TWSE Open API
-      const response = await fetch('/twse-api/v1/exchangeReport/STOCK_DAY_ALL');
+      // Use AllOrigins proxy for GitHub Pages static deployment
+      const response = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL'));
       if (!response.ok) throw new Error('TWSE API response was not ok');
       const data = await response.json();
       
@@ -57,7 +57,8 @@ function App() {
       setIsAutoSyncing(true);
       try {
         const query = customStocks.map(s => `tse_${s}.tw`).join('|');
-        const res = await fetch(`/mis-api/stock/api/getStockInfo.jsp?ex_ch=${query}`);
+        const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${query}`;
+        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
         if (!res.ok) throw new Error('MIS API response was not ok');
         const data = await res.json();
         
@@ -276,7 +277,8 @@ function App() {
                       setIsAutoSyncing(true);
                       try {
                         const query = `tse_${targetCode}.tw|otc_${targetCode}.tw`;
-                        const res = await fetch(`/mis-api/stock/api/getStockInfo.jsp?ex_ch=${query}`);
+                        const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${query}`;
+                        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
                         if (!res.ok) {
                           alert(`網路連線異常，無法連線至證交所伺服器 (HTTP ${res.status})。`);
                           throw new Error('Network response was not ok');
