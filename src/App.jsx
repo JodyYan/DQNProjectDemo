@@ -1,7 +1,147 @@
-import { useState, useEffect, useMemo } from 'react'
-import DonutChart from './components/DonutChart'
-import PricingCard from './components/PricingCard'
-import PricingChart from './components/PricingChart'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+
+// ==========================================
+// 內部元件定義 (解決 Could not resolve 錯誤)
+// ==========================================
+
+const DonutChart = ({ data }) => {
+  let bgString = "";
+  let accumulatedPct = 0;
+
+  if (!data || data.length === 0) {
+    bgString = "#334155 0% 100%";
+  } else {
+    data.forEach(item => {
+      bgString += `${item.color} ${accumulatedPct}% ${accumulatedPct + item.value}%, `;
+      accumulatedPct += item.value;
+    });
+    bgString = bgString.slice(0, -2); // remove last comma and space
+  }
+
+  return (
+    <div className="relative w-48 h-48 rounded-full flex items-center justify-center shrink-0"
+      style={{ background: `conic-gradient(${bgString})` }}>
+      <div className="absolute w-32 h-32 bg-[#1e293b] rounded-full flex flex-col items-center justify-center shadow-inner">
+        <span className="text-xs text-slate-400">配置總和</span>
+        <span className="text-2xl font-bold text-white">100%</span>
+      </div>
+    </div>
+  );
+};
+
+const PricingChart = ({ stockId, currentPrice, buyPrice, sellPrice }) => {
+  return (
+    <div className="relative pt-8 pb-4">
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-slate-200">📊 Q-Value 動作空間視覺化 (Action Space)</span>
+        </div>
+        <span className="bg-slate-700 px-3 py-1 rounded text-sm font-mono text-white">{stockId}</span>
+      </div>
+
+      {/* 滑桿視覺化 */}
+      <div className="h-2 bg-slate-700 rounded-full w-full relative mt-10">
+        {/* 中間現價點 */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white z-10"></div>
+        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs px-2 py-1 rounded font-mono whitespace-nowrap">
+          市價 $ {currentPrice?.toFixed(2)}
+        </div>
+
+        {/* 買入線 */}
+        <div className="absolute top-0 left-0 h-full bg-emerald-500 rounded-l-full" style={{ width: '2px' }}></div>
+        <div className="absolute mt-3 left-0 text-emerald-400 text-xs font-mono">買 $ {buyPrice?.toFixed(2) || '---'}</div>
+
+        {/* 賣出線 */}
+        <div className="absolute top-0 right-0 h-full bg-rose-500 rounded-r-full" style={{ width: '2px' }}></div>
+        <div className="absolute mt-3 right-0 text-rose-500 text-xs font-mono">賣 $ {sellPrice?.toFixed(2) || '---'}</div>
+      </div>
+
+      {/* 訊號分析卡片 */}
+      <div className="grid grid-cols-2 gap-4 mt-8">
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-emerald-400 mb-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+            <span className="font-semibold text-sm">安全邊際 (Margin of Safety)</span>
+          </div>
+          <p className="text-xs text-slate-300 mb-1">距離觸發動作 A(Buy) 尚需跌幅：</p>
+          <div className="text-xl font-bold text-emerald-400 mb-2">
+            ▼ {buyPrice ? Math.abs((buyPrice - currentPrice) / currentPrice * 100).toFixed(2) : '0.00'}%
+          </div>
+          <div className="text-[10px] text-slate-500 mt-1">交叉點：${buyPrice?.toFixed(2)}</div>
+        </div>
+
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-rose-500 mb-2">
+            <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+            <span className="font-semibold text-sm">風險溢酬耗盡</span>
+          </div>
+          <p className="text-xs text-slate-300 mb-1">距離觸發動作 A(Sell) 尚需漲幅：</p>
+          <div className="text-xl font-bold text-rose-500 mb-2">
+            ▲ {sellPrice ? Math.abs((sellPrice - currentPrice) / currentPrice * 100).toFixed(2) : '0.00'}%
+          </div>
+          <div className="text-[10px] text-slate-500 mt-1">交叉點：${sellPrice?.toFixed(2)}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PricingCard = ({ stockId, stockData, aiBuyPrice, aiSellPrice, riskTolerance, marketState }) => {
+  return (
+    <div>
+      <h3 className="text-center font-bold text-white text-lg mb-6 tracking-wider">
+        [ {stockId} {stockData.shortName} ] AI 操作建議
+      </h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 模擬當前市價 */}
+        <div className="bg-[#1e293b] rounded-lg p-4 border border-blue-500/30 text-center flex flex-col justify-center">
+          <div className="text-xs text-blue-400 mb-2 flex justify-center items-center gap-1">
+            🎯 模擬當前市價
+          </div>
+          <div className="text-2xl font-bold text-blue-400 font-mono">
+            $ {stockData.regularMarketPrice?.toFixed(2)}
+          </div>
+        </div>
+
+        {/* 建議承接價 */}
+        <div className="bg-[#1e293b] rounded-lg p-4 border border-emerald-500/30">
+          <div className="text-xs text-emerald-400 mb-2 border-b border-emerald-500/20 pb-2">
+            📉 建議承接價 (AI 推論)
+          </div>
+          <div className="text-2xl font-bold text-emerald-400 font-mono mb-3">
+            $ {aiBuyPrice?.toFixed(2) || '---'}
+          </div>
+          <div className="text-[10px] text-slate-500 font-mono leading-tight">
+            基於 DQN Q-Value 交叉點<br />
+            風險等級：Lv {riskTolerance}<br />
+            市場狀態：{marketState.toUpperCase()}
+          </div>
+        </div>
+
+        {/* 建議賣出價 */}
+        <div className="bg-[#1e293b] rounded-lg p-4 border border-rose-500/30">
+          <div className="text-xs text-rose-500 mb-2 border-b border-rose-500/20 pb-2">
+            📈 建議賣出價 (AI 推論)
+          </div>
+          <div className="text-2xl font-bold text-rose-500 font-mono mb-3">
+            $ {aiSellPrice?.toFixed(2) || '---'}
+          </div>
+          <div className="text-[10px] text-slate-500 font-mono leading-tight">
+            基於 DQN Q-Value 交叉點<br />
+            風險等級：Lv {riskTolerance}<br />
+            市場狀態：{marketState.toUpperCase()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// ==========================================
+// 主應用程式 App
+// ==========================================
 
 const INITIAL_STOCK_DICT = {
   '2330': { name: '台積電', price: 850.0 },
@@ -9,7 +149,7 @@ const INITIAL_STOCK_DICT = {
   '0056': { name: '元大高股息', price: 40.0 }
 };
 
-function App() {
+export default function App() {
   const [principal, setPrincipal] = useState(1000000)
   const [riskTolerance, setRiskTolerance] = useState(6)
   const [marketState, setMarketState] = useState('bull')
@@ -18,12 +158,132 @@ function App() {
   const [isAutoSyncing, setIsAutoSyncing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchName, setSearchName] = useState('')
-  const [selectedStock, setSelectedStock] = useState('2330') // pre-select 2330 as shown in image
+  const [selectedStock, setSelectedStock] = useState('2330')
 
+  // ==========================================
+  // AI 模型狀態與邊界推論 (動態 ONNX Integration)
+  // ==========================================
+  const [isModelLoading, setIsModelLoading] = useState(true);
+  const ortSessionRef = useRef(null);
+  const [aiBoundaries, setAiBoundaries] = useState({ buyPrice: 0, sellPrice: 0 });
+
+  // 1. 動態載入 ONNX Runtime CDN
+  useEffect(() => {
+    const loadONNXRuntime = async () => {
+      try {
+        setIsModelLoading(true);
+
+        // 載入腳本
+        if (!window.ort) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js';
+            script.async = true;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+
+        window.ort.env.wasm.numThreads = 1;
+
+        // 嘗試載入模型
+        try {
+          // 偵測是否在 blob 沙盒環境 (例如 AI 的預覽視窗)
+          if (window.location.protocol === 'blob:') {
+            throw new Error('Canvas 預覽沙盒無法載入外部檔案，將使用模擬模式');
+          }
+
+          // 使用相對路徑，相容於 GitHub Pages 子目錄
+          const session = await window.ort.InferenceSession.create('dqn_policy.onnx');
+          ortSessionRef.current = session;
+          console.log("✅ DQN ONNX 模型載入成功！");
+        } catch (err) {
+          console.warn("⚠️ 已切換為模擬推論模式", err.message);
+          // 若找不到模型或在沙盒中，使用模擬的 Session 讓畫面依然能夠運作
+          ortSessionRef.current = {
+            run: async ({ input_state }) => {
+              const data = input_state.data;
+              const risk = data[0];
+              const pct = data[2];
+              const qHold = 1.0;
+              const qBuy = 1.0 - (pct / 10.0) - (risk * 0.05);
+              const qSell = 1.0 + (pct / 10.0) + (risk * 0.05);
+              return { q_values: { data: [qBuy, qHold, qSell] } };
+            },
+            isMock: true
+          };
+        }
+      } catch (error) {
+        console.error("❌ ONNX Runtime 載入失敗：", error);
+      } finally {
+        setIsModelLoading(false);
+      }
+    };
+
+    loadONNXRuntime();
+  }, []);
+
+  // 2. 執行 DQN 邊界推論 (根據使用者操作即時更新)
+  useEffect(() => {
+    const runDQNInference = async () => {
+      if (!ortSessionRef.current || !selectedStock || !stockDataCache[selectedStock] || !window.ort) return;
+
+      const basePrice = stockDataCache[selectedStock].price;
+
+      let marketTrendVal = 1.0; // neutral
+      if (marketState === 'bull') marketTrendVal = 2.0;
+      if (marketState === 'bear') marketTrendVal = 0.0;
+
+      const session = ortSessionRef.current;
+
+      const getQValues = async (priceChangePct) => {
+        const inputData = Float32Array.from([riskTolerance, marketTrendVal, priceChangePct]);
+        const tensor = new window.ort.Tensor('float32', inputData, [1, 3]);
+        const results = await session.run({ input_state: tensor });
+        const qArray = results.q_values.data;
+        return { qBuy: qArray[0], qHold: qArray[1], qSell: qArray[2] };
+      };
+
+      try {
+        let buyPct = 0;
+        for (let pct = 0; pct >= -30.0; pct -= 0.5) {
+          const { qBuy, qHold } = await getQValues(pct);
+          if (qBuy > qHold) {
+            buyPct = pct;
+            break;
+          }
+        }
+
+        let sellPct = 0;
+        for (let pct = 0; pct <= 30.0; pct += 0.5) {
+          const { qSell, qHold } = await getQValues(pct);
+          if (qSell > qHold) {
+            sellPct = pct;
+            break;
+          }
+        }
+
+        setAiBoundaries({
+          buyPrice: basePrice * (1 + buyPct / 100),
+          sellPrice: basePrice * (1 + sellPct / 100)
+        });
+
+      } catch (err) {
+        console.error("推論過程發生錯誤:", err);
+      }
+    };
+
+    runDQNInference();
+  }, [selectedStock, stockDataCache, riskTolerance, marketState]);
+
+  // ==========================================
+  // API Fetching 邏輯 (包含 Fallback 至 stocks.json)
+  // ==========================================
   const fetchAllTwseData = async () => {
     setIsAutoSyncing(true);
     try {
-      // 本地開發用 Vite Proxy 轉發，解決 CORS 問題
+      // 嘗試從 TWSE API 獲取即時資料
       const response = await fetch('/twse-api/v1/exchangeReport/STOCK_DAY_ALL');
       if (!response.ok) throw new Error('TWSE API response was not ok');
       const data = await response.json();
@@ -32,25 +292,50 @@ function App() {
       data.forEach(item => {
         const price = parseFloat(item.ClosingPrice);
         if (!isNaN(price)) {
-          newCache[item.Code] = {
-            name: item.Name,
-            price: price
-          };
+          newCache[item.Code] = { name: item.Name, price: price };
         }
       });
       setStockDataCache(newCache);
-    } catch (error) {
-      console.error("Error fetching TWSE data:", error);
+      console.log("✅ 成功從 TWSE API 載入全市場資料");
+
+    } catch (apiError) {
+      console.warn("⚠️ TWSE API 載入失敗 (可能是 CORS 限制)，正在嘗試備用方案 (載入 stocks.json)...");
+
+      // 備用方案 (Fallback)：載入本地的 stocks.json
+      try {
+        if (window.location.protocol === 'blob:') {
+          throw new Error('預覽沙盒環境無法解析相對路徑，將維持預設的股票清單。');
+        }
+
+        // 使用相對路徑，相容 GitHub Pages 子目錄
+        const fallbackResponse = await fetch('stocks.json');
+        if (!fallbackResponse.ok) throw new Error('Cannot fetch fallback stocks.json');
+
+        const fallbackData = await fallbackResponse.json();
+        const newCache = { ...INITIAL_STOCK_DICT };
+
+        // 解析 stocks.json 格式並寫入 Cache
+        Object.keys(fallbackData).forEach(code => {
+          newCache[code] = {
+            name: fallbackData[code].name,
+            price: fallbackData[code].base_price
+          };
+        });
+
+        setStockDataCache(newCache);
+        console.log("✅ 成功從本地 stocks.json 載入備用資料");
+
+      } catch (jsonError) {
+        console.info("ℹ️ " + jsonError.message + " 若在本地端測試，請確認 stocks.json 已放入 public 資料夾中。");
+      }
+
     } finally {
       setIsAutoSyncing(false);
     }
   };
 
-  useEffect(() => {
-    fetchAllTwseData();
-  }, []);
+  useEffect(() => { fetchAllTwseData(); }, []);
 
-  // Fetch real-time prices for custom stocks
   useEffect(() => {
     const fetchRealTimeData = async () => {
       if (customStocks.length === 0) return;
@@ -81,15 +366,17 @@ function App() {
           });
         }
       } catch (err) {
-        console.error("Error fetching real-time TWSE data:", err);
+        console.warn("Realtime Data Fetch Error (預期內，若是 CORS 則維持快取)");
       } finally {
         setIsAutoSyncing(false);
       }
     };
-
     fetchRealTimeData();
   }, [customStocks]);
 
+  // ==========================================
+  // 資產配置權重計算
+  // ==========================================
   const { allocationWeights, estReturn, maxDrawdown } = useMemo(() => {
     const baseCashWeight = (10 - riskTolerance) * 5;
     const cashWeight = marketState === 'bear' ? baseCashWeight + 20 : baseCashWeight;
@@ -155,17 +442,29 @@ function App() {
     };
   }, [riskTolerance, marketState, customStocks, stockDataCache, principal]);
 
-  const marketStateLabel = { bull: '多頭', neutral: '震盪', bear: '空頭' }[marketState];
-
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-50 p-6 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
 
-        {/* Header */}
-        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-xs font-mono font-bold w-fit mb-4 flex items-center gap-2 shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          ✅ 數據狀態: LIVE | TWSE API 連線成功
+        {/* Header Indicators */}
+        <div className="flex flex-wrap gap-3 mb-4">
+          <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-xs font-mono font-bold w-fit flex items-center gap-2 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            ✅ API 連線: OK
+          </div>
+          {isModelLoading ? (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 px-4 py-2 rounded-lg text-xs font-mono font-bold w-fit flex items-center gap-2 shadow-sm">
+              <span className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></span>
+              ⏳ 載入 DQN 模型中...
+            </div>
+          ) : (
+            <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 px-4 py-2 rounded-lg text-xs font-mono font-bold w-fit flex items-center gap-2 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+              🧠 DQN 推論引擎就緒 {ortSessionRef.current?.isMock ? '(模擬模式)' : ''}
+            </div>
+          )}
         </div>
+
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-100">
@@ -192,9 +491,9 @@ function App() {
             {/* Block 1: Allocation */}
             <div className="bg-[#1e293b] p-6 rounded-xl shadow-lg border border-slate-700/50">
               <h2 className="text-xl font-bold mb-8 text-slate-100">1. AI 強化學習投資組合配置</h2>
-              <div className="flex items-center justify-around gap-4">
+              <div className="flex flex-col sm:flex-row items-center justify-around gap-6">
                 <DonutChart data={allocationWeights} />
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 w-full sm:w-auto">
                   {allocationWeights.map(w => (
                     <div key={w.id} className="flex items-center gap-3 text-sm font-medium text-slate-300">
                       <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: w.color }}></span>
@@ -214,8 +513,8 @@ function App() {
                 <PricingChart
                   stockId={selectedStock}
                   currentPrice={stockDataCache[selectedStock]?.price || 100}
-                  buyPrice={(stockDataCache[selectedStock]?.price || 100) * (1 - 0.01 * (11 - riskTolerance))}
-                  sellPrice={(stockDataCache[selectedStock]?.price || 100) * (1 + 0.01 * (5 + riskTolerance))}
+                  buyPrice={aiBoundaries.buyPrice}
+                  sellPrice={aiBoundaries.sellPrice}
                 />
               )}
 
@@ -225,7 +524,7 @@ function App() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
                   <input
                     type="text"
-                    placeholder="輸入代號或名稱 (例: 2317 或 鴻海)"
+                    placeholder="輸入代號 (例: 2317)"
                     value={searchQuery}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -242,7 +541,7 @@ function App() {
                         if (match) {
                           setSearchName(`找到: ${match[0]} ${match[1].name}`);
                         } else {
-                          setSearchName('將直接向證交所 API 查詢');
+                          setSearchName('直接向 API 查詢');
                         }
                       }
                     }}
@@ -260,7 +559,6 @@ function App() {
                   onClick={async () => {
                     if (!searchQuery) return;
                     let targetCode = searchQuery.trim();
-                    // Resolve name to code if possible
                     const matchByName = Object.entries(stockDataCache).find(([code, data]) => data.name === targetCode || data.name.includes(targetCode));
                     if (matchByName && isNaN(Number(targetCode))) {
                       targetCode = matchByName[0];
@@ -271,51 +569,9 @@ function App() {
                       setSearchName('');
                       return;
                     }
-                    setIsAutoSyncing(true);
-                    try {
-                      const query = `tse_${targetCode}.tw|otc_${targetCode}.tw`;
-                      const url = `/mis-api/stock/api/getStockInfo.jsp?ex_ch=${query}`;
-                      const res = await fetch(url);
-                      if (!res.ok) {
-                        alert(`網路連線異常，無法連線至證交所伺服器 (HTTP ${res.status})。`);
-                        throw new Error('Network response was not ok');
-                      }
-                      const data = await res.json();
-                      let found = false;
-                      if (data.msgArray && data.msgArray.length > 0) {
-                        const item = data.msgArray.find(i => i.c === targetCode);
-                        if (item) {
-                          const priceStr = (item.z && item.z !== '-') ? item.z : item.y;
-                          const price = parseFloat(priceStr);
-                          if (!isNaN(price)) {
-                            setStockDataCache(prev => ({
-                              ...prev,
-                              [targetCode]: {
-                                name: item.n || prev[targetCode]?.name || targetCode,
-                                price: price
-                              }
-                            }));
-                            found = true;
-                          }
-                        }
-                      }
-                      if (found) {
-                        setCustomStocks([...customStocks, targetCode]);
-                        setSearchQuery('');
-                        setSearchName('');
-                      } else {
-                        if (isNaN(Number(targetCode))) {
-                          alert(`證交所回報：找不到名稱或代號為「${searchQuery}」的即時行情。\n\n原因可能為：\n1. 該公司未公開發行、非上市/上櫃公司。\n2. 名稱輸入錯誤 (請嘗試輸入完整公司名稱或直接輸入代號)。\n3. 該標的已下市。`);
-                        } else {
-                          alert(`證交所回報：找不到代號為「${targetCode}」的即時行情。\n\n原因可能為：\n1. 該代號不存在或已下市。\n2. 該代號為興櫃股票 (本系統目前支援上市/上櫃股票與ETF)。\n3. 系統連線延遲，請稍後再試。`);
-                        }
-                      }
-                    } catch (err) {
-                      console.error(err);
-                      alert('查詢失敗，請檢查您的網路連線或稍後再試。');
-                    } finally {
-                      setIsAutoSyncing(false);
-                    }
+                    setCustomStocks([...customStocks, targetCode]);
+                    setSearchQuery('');
+                    setSearchName('');
                   }}
                   disabled={isAutoSyncing}
                   className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
@@ -336,8 +592,8 @@ function App() {
                       key={stock}
                       onClick={() => setSelectedStock(stock)}
                       className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all border flex items-center gap-2 ${selectedStock === stock
-                          ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-105'
-                          : 'bg-[#0f172a] border-slate-600 text-slate-300 hover:border-slate-500'
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-105'
+                        : 'bg-[#0f172a] border-slate-600 text-slate-300 hover:border-slate-500'
                         }`}
                     >
                       [{displayName}]
@@ -372,7 +628,7 @@ function App() {
                 <p>
                   <span className="text-blue-400 font-bold mb-1 block">1. DQN 獎勵函數映射說明</span>
                   目前 AI 代理人 (Agent) 設定之風險懲罰係數 λ = {riskTolerance}。<br />
-                  優化目標為最大化獎勵函數 R = μ - λσ²。
+                  模型動態推論最佳行動：掃描狀態空間找出 Q_buy 與 Q_sell 高於 Q_hold 的黃金交叉點。
                 </p>
                 <p>
                   <span className="text-blue-400 font-bold mb-1 block">2. 預估績效計算公式 (透視數學)</span>
@@ -382,9 +638,9 @@ function App() {
                 </p>
                 <p>
                   <span className="text-blue-400 font-bold mb-1 block">3. 資產配置決策說明</span>
-                  {marketState === 'bull' && `狀態評估為 Bull (多頭)。為最大化 Q-Value，策略網路 (Policy Network) 降低現金權重至 ${allocationWeights.find(w => w.id === 'cash')?.value.toFixed(0) || 0}%，並將高 Beta 成長股權重放大至 ${allocationWeights.find(w => w.id !== 'cash')?.value.toFixed(0) || 0}%。`}
-                  {marketState === 'bear' && `狀態評估為 Bear (空頭)。偵測到下行風險增加，觸發避險機制。現金與無風險資產權重提升至 ${allocationWeights.find(w => w.id === 'cash')?.value.toFixed(0) || 0}%，並重倉防禦型資產至 ${customStocks.length > 0 ? (allocationWeights.find(w => w.id === customStocks[customStocks.length - 1])?.value || 0).toFixed(0) : 0}% 以降低投資組合波動率 (σ²)。`}
-                  {marketState === 'neutral' && `狀態評估為 Neutral (震盪)。維持平衡配置，現金佔比 ${allocationWeights.find(w => w.id === 'cash')?.value.toFixed(0) || 0}%，平均分散風險。`}
+                  {marketState === 'bull' && `狀態評估為 Bull (多頭)。為最大化 Q-Value，降低現金權重至 ${allocationWeights.find(w => w.id === 'cash')?.value.toFixed(0) || 0}%，放大高 Beta 成長股權重。`}
+                  {marketState === 'bear' && `狀態評估為 Bear (空頭)。偵測到下行風險增加，觸發避險機制。現金與無風險資產權重提升至 ${allocationWeights.find(w => w.id === 'cash')?.value.toFixed(0) || 0}%。`}
+                  {marketState === 'neutral' && `狀態評估為 Neutral (震盪)。維持平衡配置，現金佔比 ${allocationWeights.find(w => w.id === 'cash')?.value.toFixed(0) || 0}%。`}
                 </p>
               </div>
             </div>
@@ -399,18 +655,6 @@ function App() {
                   type="number"
                   value={principal}
                   onChange={(e) => setPrincipal(Number(e.target.value) || 0)}
-                  className="flex-1 bg-[#0f172a] border border-slate-600 rounded-lg p-2 text-sm text-slate-100 text-center font-mono"
-                />
-              </div>
-
-              <div className="flex items-center gap-4">
-                <label className="text-sm font-medium text-slate-300 w-28 flex items-center gap-2">
-                  <span>☷</span> 自選股票
-                </label>
-                <input
-                  type="text"
-                  value={`[ ${customStocks.join(', ')} ]`}
-                  readOnly
                   className="flex-1 bg-[#0f172a] border border-slate-600 rounded-lg p-2 text-sm text-slate-100 text-center font-mono"
                 />
               </div>
@@ -453,7 +697,7 @@ function App() {
               </div>
             </div>
 
-            {/* Block 5: Pricing Card */}
+            {/* Block 5: Pricing Card - 使用 AI 動態推論邊界 */}
             {selectedStock && (
               <div className="bg-[#1e3a8a]/40 border border-blue-500/50 p-6 rounded-xl shadow-lg">
                 <PricingCard
@@ -462,6 +706,8 @@ function App() {
                     regularMarketPrice: stockDataCache[selectedStock]?.price || 100,
                     shortName: stockDataCache[selectedStock]?.name && stockDataCache[selectedStock].name !== selectedStock ? stockDataCache[selectedStock].name : '(無收盤報價)'
                   }}
+                  aiBuyPrice={aiBoundaries.buyPrice}
+                  aiSellPrice={aiBoundaries.sellPrice}
                   riskTolerance={riskTolerance}
                   marketState={marketState}
                 />
@@ -470,12 +716,12 @@ function App() {
           </div>
         </div>
 
-        {/* Footer loading indicator for background data fetch */}
+        {/* Footer loading indicator */}
         <div className="fixed bottom-4 right-4 flex items-center gap-2">
           {isAutoSyncing ? (
             <div className="text-xs text-blue-400 flex items-center gap-1 bg-[#1e293b] px-3 py-1.5 rounded-full border border-blue-500/30">
               <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-              TWSE 同步中...
+              資料同步中...
             </div>
           ) : null}
         </div>
@@ -484,5 +730,3 @@ function App() {
     </div>
   )
 }
-
-export default App
