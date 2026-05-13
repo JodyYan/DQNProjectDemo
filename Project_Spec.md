@@ -13,7 +13,7 @@
 
 ### 4. Development (系統開發與方法設計)
 我們的方法設計 (Based on modern web architecture) 建立在 React 18 與 Vite 的高效能渲染基礎上，結合 Tailwind CSS 打造專業的深色金融介面。
-*   **雙軌 API 資料流架構**：以台灣證券交易所 (TWSE) Open API 作為基礎全市場快取 (`stockDataCache`)，並結合 TWSE MIS 即時資訊 API 取得盤中毫秒級報價，透過 Vite Proxy 完美解決 CORS 問題。
+*   **無伺服器 API 資料流與智慧快取**：以台灣證券交易所 (TWSE) Open API 與 MIS 即時資訊 API 作為雙軌資料來源。為實現 100% 靜態網頁部署，系統導入第三方 CORS Proxy 突破瀏覽器跨域限制，並結合 `LocalStorage` 建立 15 分鐘 TTL 的邊緣快取 (Edge Caching)，大幅降低網路延遲與避免 API 頻繁請求。
 *   **DQN 數學映射引擎**：開發了即時狀態換算模組，當使用者拖曳「風險偏好」或切換「市況」時，系統會在 0.1 秒內重新計算所有自選股的預估績效、最大回撤，並動態推演出建議的「承接價」與「賣出價」。
 *   **自適應 SVG 渲染器**：實作 `PricingChart` 與 `DonutChart`，以原生 SVG 演算法根據即時市價動態計算節點座標，繪製出發光邊界與波動曲線。
 

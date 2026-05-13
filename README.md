@@ -20,9 +20,10 @@
 
 動態安全邊際：當使用者拉動「風險偏好滑桿」時，AI 會即時重新評估，保守型使用者將獲得更嚴格的安全邊際 (更低的建議買價)。
 
-3. 雙重保險資料流 (Fallback Mechanism)
+3. 雙重保險資料流與快取機制 (CORS Proxy & Caching)
 
-抗 CORS 阻擋設計：純前端應用常受限於跨網域資源共用 (CORS) 政策。本系統預設請求 TWSE (台灣證交所) 即時 API，若偵測到連線異常或跨域阻擋，將無縫切換讀取預載的 stocks.json (由 Python 爬蟲預先生成的靜態庫)，確保 Demo 環境的絕對穩定。
+純前端架構突破 CORS 限制：本系統捨棄傳統後端伺服器或 Vite 開發代理，直接在前端使用第三方 CORS Proxy (`corsproxy.io`) 去請求 TWSE (台灣證交所) 與 MIS 盤中即時 API。
+智慧快取設計：系統將取得的全市場資料整理後存入瀏覽器的 `LocalStorage`，並設定 15 分鐘的 TTL (Time-To-Live)，大幅減少重複請求。若遭遇極端斷線情況，將無縫切換讀取預載的 `stocks.json` 靜態庫，確保 Demo 環境的絕對穩定。
 
 ## 系統架構 (System Architecture)
 
