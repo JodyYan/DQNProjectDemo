@@ -386,9 +386,12 @@ export default function App() {
       setIsAutoSyncing(true);
       try {
         const query = customStocks.map(s => `tse_${s}.tw`).join('|');
-        const url = `/mis-api/stock/api/getStockInfo.jsp?ex_ch=${query}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('MIS API response was not ok');
+        // 使用 CORS Proxy 繞過限制，取得真正的即時報價 (解決 GitHub Pages 上的 404)
+        const targetUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${query}`;
+        const corsProxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+        
+        const res = await fetch(corsProxyUrl);
+        if (!res.ok) throw new Error('CORS Proxy / MIS API response was not ok');
         const data = await res.json();
 
         if (data.msgArray && data.msgArray.length > 0) {
@@ -410,7 +413,7 @@ export default function App() {
           });
         }
       } catch (err) {
-        console.warn("Realtime Data Fetch Error (預期內，若是 CORS 則維持快取)");
+        console.warn("Realtime Data Fetch Error (預期內，若是 CORS 則維持快取)", err);
       } finally {
         setIsAutoSyncing(false);
       }
