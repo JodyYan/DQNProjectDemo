@@ -245,10 +245,9 @@ export default function App() {
         return { qBuy: qArray[0], qHold: qArray[1], qSell: qArray[2] };
       };
 
-      try {
-        // 尋找 Buy 邊界：從高往低掃描，找到第一個 qBuy > qHold 的點
-        let buyPct = -30.0;
-        for (let pct = 30.0; pct >= -30.0; pct -= 0.5) {
+        // 尋找 Buy 邊界：從當前價往下掃描，強迫至少有 0.5% 的安全邊際
+        let buyPct = -0.5;
+        for (let pct = -0.5; pct >= -30.0; pct -= 0.5) {
           const { qBuy, qHold } = await getQValues(pct);
           if (qBuy > qHold) {
             buyPct = pct;
@@ -256,9 +255,9 @@ export default function App() {
           }
         }
 
-        // 尋找 Sell 邊界：從低往高掃描，找到第一個 qSell > qHold 的點
-        let sellPct = 30.0;
-        for (let pct = -30.0; pct <= 30.0; pct += 0.5) {
+        // 尋找 Sell 邊界：從當前價往上掃描，強迫至少有 0.5% 的停利空間
+        let sellPct = 0.5;
+        for (let pct = 0.5; pct <= 30.0; pct += 0.5) {
           const { qSell, qHold } = await getQValues(pct);
           if (qSell > qHold) {
             sellPct = pct;
@@ -681,9 +680,18 @@ export default function App() {
                 </p>
                 <p>
                   <span className="text-blue-400 font-bold mb-1 block">2. 預估績效計算公式 (透視數學)</span>
-                  {marketState === 'bull' && `預期報酬 μ = 6% + (風險 ${riskTolerance} × 1.2)% = ${estReturn}%`}
-                  {marketState === 'bear' && `預期報酬 μ = 2% - (風險 ${riskTolerance} × 1.5)% = ${estReturn}%`}
-                  {marketState === 'neutral' && `預期報酬 μ = 4% + (風險 ${riskTolerance} × 0.1)% = ${estReturn}%`}
+                  <span className="block mb-2">
+                    【預期報酬 Est. Return】<br />
+                    {marketState === 'bull' && `μ = 6% + (風險 ${riskTolerance} × 1.2)% = ${estReturn}%`}
+                    {marketState === 'bear' && `μ = 2% - (風險 ${riskTolerance} × 1.5)% = ${estReturn}%`}
+                    {marketState === 'neutral' && `μ = 4% + (風險 ${riskTolerance} × 0.1)% = ${estReturn}%`}
+                  </span>
+                  <span className="block text-red-300">
+                    【最大回撤 Max Drawdown】<br />
+                    {marketState === 'bull' && `MDD = -1% - (風險 ${riskTolerance} × 0.8)% = ${maxDrawdown}%`}
+                    {marketState === 'bear' && `MDD = -5% - (風險 ${riskTolerance} × 3.0)% = ${maxDrawdown}%`}
+                    {marketState === 'neutral' && `MDD = -3% - (風險 ${riskTolerance} × 1.5)% = ${maxDrawdown}%`}
+                  </span>
                 </p>
                 <p>
                   <span className="text-blue-400 font-bold mb-1 block">3. 資產配置決策說明</span>
