@@ -194,8 +194,8 @@ export default function App() {
             throw new Error('Canvas 預覽沙盒無法載入外部檔案，將使用模擬模式');
           }
 
-          // 使用相對路徑，相容於 GitHub Pages 子目錄
-          const session = await window.ort.InferenceSession.create('dqn_policy.onnx');
+          // 使用 Vite 的 BASE_URL，確保 GitHub Pages 子目錄路徑正確
+          const session = await window.ort.InferenceSession.create(import.meta.env.BASE_URL + 'dqn_policy.onnx');
           ortSessionRef.current = session;
           console.log("✅ DQN ONNX 模型載入成功！");
         } catch (err) {
@@ -307,8 +307,8 @@ export default function App() {
           throw new Error('預覽沙盒環境無法解析相對路徑，將維持預設的股票清單。');
         }
 
-        // 使用相對路徑，相容 GitHub Pages 子目錄
-        const fallbackResponse = await fetch('stocks.json');
+        // 使用 Vite 的 BASE_URL，確保 GitHub Pages 子目錄路徑正確
+        const fallbackResponse = await fetch(import.meta.env.BASE_URL + 'stocks.json');
         if (!fallbackResponse.ok) throw new Error('Cannot fetch fallback stocks.json');
 
         const fallbackData = await fallbackResponse.json();
