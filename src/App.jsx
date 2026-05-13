@@ -206,12 +206,21 @@ export default function App() {
           ortSessionRef.current = {
             run: async ({ input_state }) => {
               const data = input_state.data;
-              const risk = data[0];
+              const risk = data[0]; // 1~10
               const pct = data[2];
-              const qHold = 1.0;
-              const qBuy = 1.0 - (pct / 10.0) - (risk * 0.05);
-              // 修復：原本是 + risk*0.05 會導致 0.5% 就觸發賣出，改為 - risk*0.05 以獲得正確的停利目標
-              const qSell = 1.0 + (pct / 10.0) - (risk * 0.05);
+              
+              // 3. 摩擦成本 (Friction Cost)：設定 Q_hold 為 1.02，代表交易需克服約 0.2% 的手續費與滑價
+              const qHold = 1.02; 
+
+              // 2. 非線性映射 (Sigmoid/Tanh)：使用 Math.tanh 讓極端波動 (如 20%) 收斂，避免 Q-Value 無限膨脹
+              const priceImpact = Math.tanh(pct / 10.0);
+
+              // 1. 買入悖論修正：保守型 (risk低) 需要更深的安全邊際，因此使用 (11 - risk) 進行反向映射
+              const qBuy = 1.0 - priceImpact - ((11 - risk) * 0.05);
+              
+              // 賣出邏輯維持原樣：積極型 (risk高) 願意等更高獲利才賣
+              const qSell = 1.0 + priceImpact - (risk * 0.05);
+
               return { q_values: { data: [qBuy, qHold, qSell] } };
             },
             isMock: true
