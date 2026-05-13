@@ -245,6 +245,7 @@ export default function App() {
         return { qBuy: qArray[0], qHold: qArray[1], qSell: qArray[2] };
       };
 
+      try {
         // 尋找 Buy 邊界：從當前價往下掃描，強迫至少有 0.5% 的安全邊際
         let buyPct = -0.5;
         for (let pct = -0.5; pct >= -30.0; pct -= 0.5) {
