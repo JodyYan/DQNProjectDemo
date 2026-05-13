@@ -246,8 +246,9 @@ export default function App() {
       };
 
       try {
-        let buyPct = 0;
-        for (let pct = 0; pct >= -30.0; pct -= 0.5) {
+        // 尋找 Buy 邊界：從高往低掃描，找到第一個 qBuy > qHold 的點
+        let buyPct = -30.0;
+        for (let pct = 30.0; pct >= -30.0; pct -= 0.5) {
           const { qBuy, qHold } = await getQValues(pct);
           if (qBuy > qHold) {
             buyPct = pct;
@@ -255,8 +256,9 @@ export default function App() {
           }
         }
 
-        let sellPct = 0;
-        for (let pct = 0; pct <= 30.0; pct += 0.5) {
+        // 尋找 Sell 邊界：從低往高掃描，找到第一個 qSell > qHold 的點
+        let sellPct = 30.0;
+        for (let pct = -30.0; pct <= 30.0; pct += 0.5) {
           const { qSell, qHold } = await getQValues(pct);
           if (qSell > qHold) {
             sellPct = pct;
