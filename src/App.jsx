@@ -186,6 +186,8 @@ export default function App() {
         }
 
         window.ort.env.wasm.numThreads = 1;
+        // 強制指定 WASM 路徑，避免在 GitHub Pages 子目錄或不同環境下 404
+        window.ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
 
         // 嘗試載入模型
         try {
@@ -208,7 +210,8 @@ export default function App() {
               const pct = data[2];
               const qHold = 1.0;
               const qBuy = 1.0 - (pct / 10.0) - (risk * 0.05);
-              const qSell = 1.0 + (pct / 10.0) + (risk * 0.05);
+              // 修復：原本是 + risk*0.05 會導致 0.5% 就觸發賣出，改為 - risk*0.05 以獲得正確的停利目標
+              const qSell = 1.0 + (pct / 10.0) - (risk * 0.05);
               return { q_values: { data: [qBuy, qHold, qSell] } };
             },
             isMock: true
