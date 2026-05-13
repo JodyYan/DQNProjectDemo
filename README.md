@@ -80,7 +80,6 @@ npm run dev
 
 
 打開瀏覽器訪問 http://localhost:5173 即可體驗。
-
 ## 技術堆疊 (Tech Stack)
 
 Frontend Framework: React 18, Vite
