@@ -282,39 +282,83 @@ export default function App() {
   // ==========================================
   const fetchAllTwseData = async () => {
     setIsAutoSyncing(true);
+    
+    // 檢查 localStorage 緩存 (取代 Cookie，因為 Cookie 有 4KB 大小限制，裝不下 200KB 的股票資料)
+    const CACHE_KEY = 'twse_stocks_cache';
+    const TIME_KEY = 'twse_stocks_time';
+    const CACHE_EXPIRY = 15 * 60 * 1000; // 15 分鐘
+    
+    const cachedData = localStorage.getItem(CACHE_KEY);
+    const cachedTime = localStorage.getItem(TIME_KEY);
+    const now = new Date().getTime();
+    
+    if (cachedData && cachedTime && (now - cachedTime < CACHE_EXPIRY)) {
+      setStockDataCache(JSON.parse(cachedData));
+      console.log("✅ 從 LocalStorage 載入 15 分鐘內的快取資料，免重複獲取");
+      setIsAutoSyncing(false);
+      return;
+    }
+
     try {
-      // 嘗試從 TWSE API 獲取即時資料
-      const response = await fetch('/twse-api/v1/exchangeReport/STOCK_DAY_ALL');
-      if (!response.ok) throw new Error('TWSE API response was not ok');
+      console.log("🌐 正在透過 CORS Proxy 獲取 TWSE 最新資料 (取代 Colab Python 腳本)...");
+      // 使用第三方 CORS proxy 來繞過瀏覽器限制
+      const corsProxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL');
+      const response = await fetch(corsProxyUrl);
+      
+      if (!response.ok) throw new Error('CORS Proxy / TWSE API 請求失敗');
       const data = await response.json();
 
       const newCache = { ...INITIAL_STOCK_DICT };
+      const colors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f43f5e", "#14b8a6", "#64748b"];
+
+      // 完美復刻 Colab Notebook 的邏輯
       data.forEach(item => {
-        const price = parseFloat(item.ClosingPrice);
-        if (!isNaN(price)) {
-          newCache[item.Code] = { name: item.Name, price: price };
+        const stock_id = item.Code || "";
+        const name = item.Name || "";
+        const close_price_str = (item.ClosingPrice || "").replace(/,/g, "");
+        const base_price = parseFloat(close_price_str);
+
+        if (isNaN(base_price)) return; // 無效報價跳過
+
+        let stock_type, beta;
+        if (stock_id.startsWith("00")) {
+          stock_type = name.includes("高息") ? "dividend" : "etf";
+          beta = 0.7 + Math.random() * 0.3; // 隨機 0.7 ~ 1.0
+        } else {
+          stock_type = base_price > 100 ? "growth" : "value";
+          beta = 0.9 + Math.random() * 0.6; // 隨機 0.9 ~ 1.5
         }
+
+        newCache[stock_id] = {
+          id: stock_id,
+          name: name.trim(),
+          price: Math.round(base_price * 100) / 100, // 替換掉舊的 base_price，統一使用 price 讓 UI 讀取
+          beta: Math.round(beta * 100) / 100,
+          type: stock_type,
+          color: colors[Math.floor(Math.random() * colors.length)]
+        };
       });
+
       setStockDataCache(newCache);
-      console.log("✅ 成功從 TWSE API 載入全市場資料");
+      // 寫入快取
+      localStorage.setItem(CACHE_KEY, JSON.stringify(newCache));
+      localStorage.setItem(TIME_KEY, now.toString());
+      console.log("✅ 成功產生並快取最新的全市場股票資料");
 
     } catch (apiError) {
-      console.warn("⚠️ TWSE API 載入失敗 (可能是 CORS 限制)，正在嘗試備用方案 (載入 stocks.json)...");
+      console.warn("⚠️ 即時獲取失敗，正在嘗試備用方案 (載入 stocks.json)...", apiError);
 
-      // 備用方案 (Fallback)：載入本地的 stocks.json
       try {
         if (window.location.protocol === 'blob:') {
           throw new Error('預覽沙盒環境無法解析相對路徑，將維持預設的股票清單。');
         }
 
-        // 使用 Vite 的 BASE_URL，確保 GitHub Pages 子目錄路徑正確
         const fallbackResponse = await fetch(import.meta.env.BASE_URL + 'stocks.json');
         if (!fallbackResponse.ok) throw new Error('Cannot fetch fallback stocks.json');
 
         const fallbackData = await fallbackResponse.json();
         const newCache = { ...INITIAL_STOCK_DICT };
 
-        // 解析 stocks.json 格式並寫入 Cache
         Object.keys(fallbackData).forEach(code => {
           newCache[code] = {
             name: fallbackData[code].name,
@@ -326,7 +370,7 @@ export default function App() {
         console.log("✅ 成功從本地 stocks.json 載入備用資料");
 
       } catch (jsonError) {
-        console.info("ℹ️ " + jsonError.message + " 若在本地端測試，請確認 stocks.json 已放入 public 資料夾中。");
+        console.info("ℹ️ " + jsonError.message);
       }
 
     } finally {
